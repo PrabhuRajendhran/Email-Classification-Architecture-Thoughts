@@ -14,6 +14,9 @@ Output :
 1. Given that LLMs are probabilistic and scores may fluctuate, have we implemented measures to address this variability?
 
 2. Have we coordinated with the Ops Teams regarding the acceptable margin of error? What is their threshold for errors, and how do these impact our operations?
+	- Correct Output
+	- Incorrect Output
+	- no Output
 
 Data Input : 
 
