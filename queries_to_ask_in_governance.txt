@@ -1,0 +1,131 @@
+May I ask a couple of questions if that's alright with you?
+
+Context :
+
+Since I wasn't part of the Architecture & Design Discussions, I'm uncertain if these aspects have already been covered.
+It's essential to recognize that Generative AI, particularly Large Language Models, are not magical solutions. 
+They function as advanced next word predictors, trained extensively on diverse global data to grasp text semantics. 
+Their impressive generation speed is due to sophisticated architectures and mechanisms like Attention and Embeddings.
+
+My questions are:
+
+Output : 
+
+1. Given that LLMs are probabilistic and scores may fluctuate, have we implemented measures to address this variability?
+
+2. Have we coordinated with the Ops Teams regarding the acceptable margin of error? What is their threshold for errors, and how do these impact our operations?
+
+Data Input : 
+
+1. How are we feeding the data to the model? Azure Event Grid uses Graph API to fetch emails?
+
+2. Can we consider pre-processing techniques to strip out redundant content, such as signatures and disclaimers, since each word incurs a cost?
+
+3. Can we identify the team based on salutations wherever possible?
+
+4. What other metadata are we considering to pass?
+
+Prompt :
+
+1. Could you please show me the prompt? If there are any rules, can we implement them using a pure Python solution?
+
+2. What techniques are we using for prompt engineering?
+
+3. Are we considering compressing the prompt?
+
+Model :
+
+1. Will an encoder-only or decoder-only model work better for the email classification project? are we over-killing it?
+	- Encoder-only models like BERT are often better for email classification due to their strong representation capabilities.
+	- Decoder-only models like GPT are more suited for text generation tasks.
+
+2. What other models have we explored? What are the potential metrics to consider particular model? 
+
+	- Can we explore other models such as BERT, RoBERTa, etc. 
+	- Can we conduct Comparative analyses on models to evaluate their performance and suitability.
+
+3. Should we use a single model or a service-level model with a router?
+
+	- A single model is simpler to manage, but a service-level model with a router offers better scalability and flexibility.
+	- The choice depends on the specific requirements and expected workload.
+
+4. Return on Investment (ROI):
+
+   - Implementing the model is expected to improve operational efficiency and reduce costs.
+   - The potential ROI includes faster email classification, improved accuracy, and enhanced user satisfaction.
+   
+5. Model or Inference Optimization Techniques
+
+	1. Quantization:
+	   - Reduces the precision of the model’s weights and activations (e.g., from 32-bit floating-point to 8-bit integers) to decrease memory usage and computation time.
+
+	2. Pruning:
+	   - Removes less important neurons or layers in the neural network to reduce the model size and speed up inference.
+
+	3. Knowledge Distillation:
+	   - Transfers knowledge from a larger, more complex model (teacher) to a smaller, more efficient model (student) while retaining similar performance.
+
+	4. Model Tuning:
+	   - Fine-tuning hyperparameters and architectural components to improve model performance and efficiency.
+
+	5. Early Stopping:
+	   - Stops the training process once the model performance on validation data plateaus to avoid overfitting and save computation.
+
+	6. Batch Processing:
+	   - Groups multiple input samples into a single batch for processing, improving computational efficiency through parallelism.
+
+	7. Lazy Loading:
+	   - Loads only the necessary parts of the model into memory as needed, rather than the entire model, to save memory and speed up processing.
+
+	8. Parallel and Distributed Processing:
+	   - Distributes computation across multiple GPUs or machines to handle large-scale data and complex models more efficiently.
+
+	9. Optimized Hardware Utilization:
+	   - Leverages specialized hardware like TPUs (Tensor Processing Units) and FPGAs (Field-Programmable Gate Arrays) designed for efficient AI model execution.
+
+	10. Efficient Data Handling:
+		- Implements data pipeline optimization techniques, such as caching and prefetching, to reduce data loading times and improve overall throughput.
+
+	11. Model Simplification:
+		- Simplifies the model architecture by reducing the number of layers or parameters without significantly impacting accuracy.
+
+	12. Dynamic Inference:
+		- Adapts the model’s inference path based on the complexity of the input, potentially skipping less relevant computations.   
+   
+Others :
+ 
+ For an email classification project, it's crucial to ask the right questions to ensure effective and accurate classification. Here are some key queries you can consider:
+
+1. Data Preparation:
+   - What pre-processing techniques should we use to clean and standardize the email data?
+   - How can we handle redundant content, such as signatures and disclaimers?
+
+2. Model Selection and Training:
+   - Which machine learning models or algorithms are best suited for email classification?
+   - What evaluation metrics should we use to assess the model's performance?
+
+3. Feature Engineering:
+   - What are the most relevant features to extract from email content for classification?
+   - How can we incorporate metadata, such as sender information and timestamps, into the model?
+
+4. Handling Imbalanced Data:
+   - What techniques can we use to address class imbalance in the dataset?
+   - How can we ensure the model performs well across all classes?
+
+5. Scalability and Performance:
+   - How can we optimize the model for real-time classification of incoming emails?
+   - What strategies can we implement to handle large volumes of email data efficiently?
+
+6. Evaluation and Validation:
+   - How can we set up a robust validation framework to test the model's accuracy and reliability?
+   - What are the acceptable levels of accuracy and precision for the email classification tasks?
+
+7. Deployment and Maintenance:
+   - What infrastructure and tools are required for deploying the model into a production environment?
+   - How can we monitor the model's performance and update it as needed to maintain accuracy?
+
+8. Business Impact:
+   - What are the potential business benefits of implementing an email classification system?
+   - How can we measure the return on investment (ROI) for the project?
+
+These queries can help guide your project and ensure that all critical aspects of email classification are addressed. Let me know if you need more detailed insights on any of these points! 😊
