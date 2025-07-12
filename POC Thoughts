@@ -1,3 +1,31 @@
+1. Understand what the functional unit does
+2. Understand the nuances of the email
+3. Understand the existing category and it definitions
+4. Understand the perspective of model why it thinks it should not fit into the exiting categories. 
+5. Validate is it correct based on 1 to 4.
+6. If step 5 says model prediction is right, then check whether ops category is available for that .
+7. If ops category is available in step 6, then cross check model's perspective vs ops perspective. Which seems more relevant for the current email. Based on that, take decision whether to reject ops category or to update ops chosen category definition to include this email.
+8. If ops category is not available in step6, then take decision to update any existing category defs to include this email or to add new category.
+9. If step5 says model prediction is incorrect, then return the correct category which seems relevant
+
+------------------------------
+
+When you update definitions or add new categories, it's possible that some emails that were previously predicted correctly might be affected. This can happen due to:
+
+## Reasons for Impact
+1. Overlapping Categories: If categories overlap or have similar characteristics, changes to one category might affect others.
+2. Definition Changes: Updating definitions can alter the model's understanding of what constitutes a particular category.
+3. Model Retraining: If the model is retrained on new data or definitions, its performance on previously correctly predicted emails might change.
+
+## Mitigation Strategies
+1. Backtesting: Test the updated model on a large dataset, including emails that were previously predicted correctly.
+2. Validation: Validate the model's performance on a held-out test set to ensure that changes haven't negatively impacted overall accuracy.
+3. Incremental Updates: Make incremental updates to definitions and categories, testing the model's performance after each update.
+
+By carefully evaluating the impact of changes and using mitigation strategies, you can minimize the risk of affecting previously correctly predicted emails.
+
+---------------------------------
+
 Your plan is comprehensive and structured. Here's a summarized version with some minor suggestions:
 
 ## Validation Plan
