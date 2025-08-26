@@ -1,0 +1,382 @@
+import asyncio
+import time
+import logging
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any, Callable
+from enum import Enum
+from tenacity import (
+    retry, 
+    stop_after_attempt, 
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import random
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class ModelStatus(Enum):
+    ACTIVE = "active"
+    THROTTLED = "throttled"
+    ERROR = "error"
+    CHECKING = "checking"
+
+@dataclass
+class ModelConfig:
+    name: str
+    endpoint: str
+    max_requests_per_minute: int = 60
+    max_tokens_per_minute: int = 100000
+    priority: int = 1  # Lower number = higher priority
+    client_config: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class ModelState:
+    config: ModelConfig
+    status: ModelStatus = ModelStatus.ACTIVE
+    last_request_time: float = 0
+    throttle_until: float = 0
+    error_count: int = 0
+    success_count: int = 0
+    last_health_check: float = 0
+    # Token tracking
+    tokens_used_this_minute: int = 0
+    token_window_start: float = field(default_factory=time.time)
+    requests_this_minute: int = 0
+    request_window_start: float = field(default_factory=time.time)
+
+class ModelPoolManager:
+    def __init__(self, models: List[ModelConfig], health_check_interval: int = 30):
+        self.models = {model.name: ModelState(model) for model in models}
+        self.health_check_interval = health_check_interval
+        self.daemon_thread = None
+        self.stop_daemon = threading.Event()
+        self.lock = threading.Lock()
+        
+    def start_daemon(self):
+        """Start the daemon thread for health checking"""
+        if self.daemon_thread is None or not self.daemon_thread.is_alive():
+            self.stop_daemon.clear()
+            self.daemon_thread = threading.Thread(target=self._daemon_worker, daemon=True)
+            self.daemon_thread.start()
+            logger.info("Model pool daemon started")
+    
+    def stop_daemon_thread(self):
+        """Stop the daemon thread"""
+        self.stop_daemon.set()
+        if self.daemon_thread:
+            self.daemon_thread.join()
+            logger.info("Model pool daemon stopped")
+    
+    def _daemon_worker(self):
+        """Daemon worker that continuously checks model health"""
+        while not self.stop_daemon.wait(self.health_check_interval):
+            self._perform_health_checks()
+    
+    def _perform_health_checks(self):
+        """Check health of all models and update their status"""
+        current_time = time.time()
+        
+        with self.lock:
+            for model_name, model_state in self.models.items():
+                # Check if throttle period has expired
+                if (model_state.status == ModelStatus.THROTTLED and 
+                    current_time > model_state.throttle_until):
+                    logger.info(f"Model {model_name} throttle period expired, marking as active")
+                    model_state.status = ModelStatus.ACTIVE
+                    model_state.error_count = 0
+                
+                # Perform periodic health check
+                if (current_time - model_state.last_health_check > self.health_check_interval):
+                    self._check_model_health(model_state)
+    
+    def _reset_rate_limit_windows(self, model_state: ModelState):
+        """Reset rate limit windows if minute has passed"""
+        current_time = time.time()
+        
+        # Reset token window if a minute has passed
+        if current_time - model_state.token_window_start >= 60:
+            model_state.tokens_used_this_minute = 0
+            model_state.token_window_start = current_time
+        
+        # Reset request window if a minute has passed
+        if current_time - model_state.request_window_start >= 60:
+            model_state.requests_this_minute = 0
+            model_state.request_window_start = current_time
+    
+    def _check_rate_limits(self, model_state: ModelState, estimated_tokens: int = 0) -> bool:
+        """Check if model can handle the request within rate limits"""
+        self._reset_rate_limit_windows(model_state)
+        
+        # Check request rate limit
+        if model_state.requests_this_minute >= model_state.config.max_requests_per_minute:
+            return False
+        
+        # Check token rate limit
+        if (model_state.tokens_used_this_minute + estimated_tokens) > model_state.config.max_tokens_per_minute:
+            return False
+        
+        return True
+    
+    def _check_model_health(self, model_state: ModelState):
+        """Check if a specific model is healthy"""
+        model_state.last_health_check = time.time()
+        self._reset_rate_limit_windows(model_state)
+        
+        # Here you would implement actual health check logic
+        # For now, we'll assume models recover after being throttled
+        if model_state.status == ModelStatus.ERROR and model_state.error_count < 5:
+            model_state.status = ModelStatus.ACTIVE
+            logger.info(f"Model {model_state.config.name} marked as active after health check")
+    
+    def get_active_models(self, estimated_tokens: int = 0) -> List[ModelState]:
+        """Get list of currently active models that can handle the request, sorted by priority"""
+        with self.lock:
+            available_models = []
+            for model in self.models.values():
+                if (model.status == ModelStatus.ACTIVE and 
+                    self._check_rate_limits(model, estimated_tokens)):
+                    available_models.append(model)
+            return sorted(available_models, key=lambda m: m.config.priority)
+    
+    def get_best_model(self, estimated_tokens: int = 0) -> Optional[ModelState]:
+        """Get the best available model that can handle the token load"""
+        active_models = self.get_active_models(estimated_tokens)
+        return active_models[0] if active_models else None
+    
+    def mark_model_throttled(self, model_name: str, throttle_duration: int = 60):
+        """Mark a model as throttled"""
+        with self.lock:
+            if model_name in self.models:
+                model_state = self.models[model_name]
+                model_state.status = ModelStatus.THROTTLED
+                model_state.throttle_until = time.time() + throttle_duration
+                model_state.error_count += 1
+                logger.warning(f"Model {model_name} throttled for {throttle_duration} seconds")
+    
+    def mark_model_error(self, model_name: str):
+        """Mark a model as having an error"""
+        with self.lock:
+            if model_name in self.models:
+                model_state = self.models[model_name]
+                model_state.status = ModelStatus.ERROR
+                model_state.error_count += 1
+                logger.error(f"Model {model_name} marked as error (count: {model_state.error_count})")
+    
+    def mark_model_success(self, model_name: str, tokens_used: int = 0):
+        """Mark a successful request for a model and update token usage"""
+        with self.lock:
+            if model_name in self.models:
+                model_state = self.models[model_name]
+                model_state.success_count += 1
+                model_state.last_request_time = time.time()
+                
+                # Update rate limiting counters
+                self._reset_rate_limit_windows(model_state)
+                model_state.requests_this_minute += 1
+                model_state.tokens_used_this_minute += tokens_used
+                
+                if model_state.status != ModelStatus.ACTIVE:
+                    model_state.status = ModelStatus.ACTIVE
+                    logger.info(f"Model {model_name} marked as active after success")
+                
+                logger.debug(f"Model {model_name}: {model_state.requests_this_minute}/{model_state.config.max_requests_per_minute} requests, "
+                           f"{model_state.tokens_used_this_minute}/{model_state.config.max_tokens_per_minute} tokens this minute")
+
+class ThrottleException(Exception):
+    """Exception raised when model is throttled"""
+    pass
+
+class NoActiveModelsException(Exception):
+    """Exception raised when no models are available"""
+    pass
+
+class RateLimitExceededException(Exception):
+    """Exception raised when rate limits are exceeded"""
+    pass
+
+class BedrockModelClient:
+    def __init__(self, pool_manager: ModelPoolManager):
+        self.pool_manager = pool_manager
+        self.pool_manager.start_daemon()
+    
+    def _should_retry_exception(self, exception):
+        """Determine if we should retry based on exception type"""
+        return isinstance(exception, (ThrottleException, NoActiveModelsException, RateLimitExceededException))
+    
+    def _estimate_tokens(self, request_data: Dict[str, Any]) -> int:
+        """Estimate token count for the request"""
+        # Simple estimation - you should replace this with actual token counting
+        text_content = ""
+        
+        # Extract text from messages
+        if "messages" in request_data:
+            for message in request_data["messages"]:
+                if isinstance(message, dict) and "content" in message:
+                    text_content += str(message["content"])
+        
+        # Extract other text fields
+        if "prompt" in request_data:
+            text_content += str(request_data["prompt"])
+        
+        # Simple estimation: ~4 characters per token
+        estimated_input_tokens = len(text_content) // 4
+        
+        # Add estimated output tokens
+        max_tokens = request_data.get("max_tokens", 1000)
+        
+        total_estimated = estimated_input_tokens + max_tokens
+        return max(total_estimated, 100)  # Minimum estimate
+    
+    def _before_retry(self, retry_state):
+        """Called before each retry attempt"""
+        logger.info(f"Retrying request (attempt {retry_state.attempt_number})")
+    
+    @retry(
+        retry=retry_if_exception_type((ThrottleException, NoActiveModelsException)),
+        stop=stop_after_attempt(10),
+        wait=wait_exponential(multiplier=1, min=1, max=60),
+        before_sleep=before_sleep_log(logger, logging.INFO)
+    )
+    def make_request(self, request_data: Dict[str, Any], **kwargs) -> Any:
+        """Make a request using the model pool with intelligent retry"""
+        
+        # Get the best available model
+        best_model = self.pool_manager.get_best_model()
+        
+        if not best_model:
+            # No active models available
+            active_count = len(self.pool_manager.get_active_models())
+            logger.warning(f"No active models available (active: {active_count})")
+            raise NoActiveModelsException("No active models available")
+        
+        model_name = best_model.config.name
+        logger.info(f"Using model: {model_name}")
+        
+        try:
+            # Simulate the actual API call here
+            result = self._call_bedrock_api(best_model, request_data, **kwargs)
+            
+            # Mark success
+            self.pool_manager.mark_model_success(model_name)
+            return result
+            
+        except Exception as e:
+            # Handle different types of errors
+            if self._is_throttle_error(e):
+                # Model is throttled, mark it and try again
+                throttle_duration = self._extract_throttle_duration(e)
+                self.pool_manager.mark_model_throttled(model_name, throttle_duration)
+                raise ThrottleException(f"Model {model_name} throttled") from e
+            else:
+                # Other error, mark model as error and re-raise
+                self.pool_manager.mark_model_error(model_name)
+                raise
+    
+    def _call_bedrock_api(self, model_state: ModelState, request_data: Dict[str, Any], **kwargs) -> Any:
+        """
+        Actual API call to Bedrock - replace this with your real implementation
+        """
+        # This is where you'd make the actual call to your Bedrock model
+        # For demonstration, we'll simulate throttling and success
+        
+        import random
+        if random.random() < 0.3:  # 30% chance of throttling for demo
+            # Simulate throttling response
+            raise Exception("ThrottlingException: Rate exceeded")
+        
+        # Simulate successful response
+        time.sleep(0.1)  # Simulate API latency
+        return {"response": f"Success from {model_state.config.name}", "model": model_state.config.name}
+    
+    def _is_throttle_error(self, exception) -> bool:
+        """Check if exception indicates throttling"""
+        error_message = str(exception).lower()
+        throttle_indicators = [
+            'throttling', 'rate exceeded', 'too many requests', 
+            'quota exceeded', 'rate limit', 'throttled'
+        ]
+        return any(indicator in error_message for indicator in throttle_indicators)
+    
+    def _extract_throttle_duration(self, exception) -> int:
+        """Extract throttle duration from exception, default to 60 seconds"""
+        # You could parse the exception message for retry-after header
+        # For now, return a default duration
+        return 60
+    
+    def get_pool_status(self) -> Dict[str, Dict[str, Any]]:
+        """Get current status of all models in the pool"""
+        status = {}
+        with self.pool_manager.lock:
+            for name, model_state in self.pool_manager.models.items():
+                status[name] = {
+                    'status': model_state.status.value,
+                    'priority': model_state.config.priority,
+                    'success_count': model_state.success_count,
+                    'error_count': model_state.error_count,
+                    'throttle_until': model_state.throttle_until if model_state.status == ModelStatus.THROTTLED else None
+                }
+        return status
+
+# Example usage
+def main():
+    # Define your model pool
+    models = [
+        ModelConfig(
+            name="claude-3-sonnet",
+            endpoint="bedrock-runtime.us-east-1.amazonaws.com",
+            priority=1,
+            max_requests_per_minute=60
+        ),
+        ModelConfig(
+            name="claude-3-haiku",
+            endpoint="bedrock-runtime.us-west-2.amazonaws.com", 
+            priority=2,
+            max_requests_per_minute=100
+        ),
+        ModelConfig(
+            name="claude-instant",
+            endpoint="bedrock-runtime.eu-west-1.amazonaws.com",
+            priority=3,
+            max_requests_per_minute=120
+        ),
+    ]
+    
+    # Create pool manager and client
+    pool_manager = ModelPoolManager(models, health_check_interval=30)
+    client = BedrockModelClient(pool_manager)
+    
+    # Example requests
+    try:
+        for i in range(10):
+            print(f"\n--- Request {i+1} ---")
+            
+            request_data = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 100,
+                "messages": [{"role": "user", "content": f"Hello, this is request {i+1}"}]
+            }
+            
+            result = client.make_request(request_data)
+            print(f"Success: {result}")
+            
+            # Print pool status
+            status = client.get_pool_status()
+            print("Pool Status:")
+            for model_name, model_status in status.items():
+                print(f"  {model_name}: {model_status}")
+            
+            time.sleep(1)  # Small delay between requests
+            
+    except Exception as e:
+        print(f"Final error: {e}")
+    finally:
+        # Clean up
+        pool_manager.stop_daemon_thread()
+
+if __name__ == "__main__":
+    main()
