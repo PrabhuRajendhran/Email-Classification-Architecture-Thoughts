@@ -1,0 +1,54 @@
+Here is the complete table summarizing the seven core IDP stages, aligning them to the phased migration tiers, and including the What, Why, How, Where, Who, and When for easy reference and copying.
+🗺️ Enterprise IDP Workflow Phased Migration Summary
+This table tracks the evolution of component ownership, cost, and responsibility across the three phases, allowing your team to move from speed to control.
+| IDP Stage | Phase 1 (Quick Time to Market) | Phase 2 (Resilient & Scalable) | Phase 3 (Cost Effective & High Control) |
+|---|---|---|---|
+| 1. 📥 Ingestion & Pre-Processing |  |  |  |
+| What | Doc format detection, basic routing. | Add simple document cleanup. | Add simple template routing and complex format parsing. |
+| Why | Determine API call and establish routing. | Improve text quality for RAG and local LLM. | Eliminate cloud format support cost and offload simple docs. |
+| How | Custom Python routing logic. | Python + Basic cleanup script. | Unstructured.io or proprietary parser integration. |
+| Where | Internal Code (Minimal effort). | Internal Code (Medium effort). | Internal Infrastructure (High control). |
+| Who | Data Engineer / Platform Team. | Data Engineer / Platform Team. | Data Engineer / ML Engineer. |
+| When | Launch. | Stabilization / Pre-LLM Migration. | Cost Optimization (Post-LLM Migration). |
+| 2. 📝 Digitization & Layout |  |  |  |
+| What | OCR, Layout, and Reading Order extraction. | Maintain high-quality OCR/Layout output. | MIGRATE: OCR, Layout, and Reading Order extraction. |
+| Why | Highest Initial Accuracy (Tier 3) and fastest deployment. | De-risk Phase 2: Maintain stable input while migrating Intelligence. | Eliminate API Page Costs (Tier 6) and achieve data sovereignty. |
+| How | AWS Textract / Google Doc AI. | AWS Textract / Google Doc AI (Stable Layer). | PaddleOCR/Tesseract + Unstructured.io (Layout). |
+| Where | Cloud API (High variable cost, Low control). | Cloud API (High variable cost, Low control). | Internal Infrastructure (Fixed cost, Highest control). |
+| Who | Platform Team (API integration). | Platform Team. | ML Engineer / Computer Vision Specialist. |
+| When | Launch. | Phase 2 Stability. | Phase 3 Go-Live. |
+| 3. 📊 Data Structuring & Normalization |  |  |  |
+| What | Structured data extraction (Tables, K-V pairs). | Maintain reliable structured data output. | MIGRATE: Table and K-V pair extraction. |
+| Why | Saves weeks of open-source development for table logic. | Maintain reliability for transactional data flows. | Full Control over table extraction logic and schema. |
+| How | AWS Textract / Google Doc AI (Tables feature). | AWS Textract / Google Doc AI. | Unstructured.io / DeepDoctection + custom templates. |
+| Where | Cloud API (High variable cost). | Cloud API (High variable cost). | Internal Infrastructure (Fixed cost, Highest control). |
+| Who | Platform Team. | Platform Team. | ML Engineer. |
+| When | Launch. | Phase 2 Stability. | Phase 3 Go-Live. |
+| 4. 🧠 Intelligence & Semantic Understanding |  |  |  |
+| What | Rules Extraction, Complex RAG, Semantic Queries. | MIGRATE: Rules Extraction, Complex RAG, Semantic Queries. | Fine-Tuning: Optimize RAG, Fine-Tune LLM with HITL data. |
+| Why | Best initial accuracy for complex queries. | Achieve Zero Throttling (Tier 4) and Cost Control. | Sustain Accuracy (Tier 3) and maximize ROI on fixed infrastructure. |
+| How | Managed LLM (GPT-4/Claude) via RAG. | Self-Hosted LLM (Llama 3 8B) + Vector DB (Qdrant/Weaviate). | Fine-Tuned Local LLM + Advanced RAG orchestration. |
+| Where | External API (Highest variable cost, Low control). | Internal Infrastructure (Fixed cost, High control). | Internal Infrastructure (Lowest running cost). |
+| Who | ML Engineer / Data Scientist. | ML Engineer / DevOps Specialist. | Data Scientist / ML Engineer. |
+| When | Launch. | Phase 2 Focus. | Continuous Improvement (Post-Phase 3). |
+| 5. ✅ Validation & Human-in-the-Loop |  |  |  |
+| What | Automated validation, Confidence scoring, HITL Queue. | Automated validation, HITL data collection for local LLM. | Automated validation, Automated Retraining Loop integration. |
+| Why | Compliance and achieving Tier 3 Accuracy. Establishes feedback loop. | Data used to train the new local LLM. | Continuous Improvement and prevention of model drift. |
+| How | Pydantic Schemas + Custom Code + Review Interface. | Pydantic Schemas + Review Interface. | Pydantic Schemas + MLOps Pipeline Integration. |
+| Where | Internal Platform (High ongoing effort). | Internal Platform (High ongoing effort). | Internal MLOps System (Highest value). |
+| Who | QA Analyst / Business Analyst / Data Scientist. | QA Analyst / Business Analyst / Data Scientist. | MLOps Engineer / Data Scientist. |
+| When | Launch and Continuous. | Continuous. | Continuous. |
+| 6. 📤 Post-Processing & Integration |  |  |  |
+| What | Final data normalization and push to target system. | Stable integration layer. | Stable integration layer. |
+| Why | Standardize data for ERP/CRM systems. | Component stability. | Component stability. |
+| How | Custom ETL scripts / API Connectors. | Custom ETL scripts / API Connectors. | Custom ETL scripts / API Connectors. |
+| Where | Internal ETL/Integration Layer. | Internal ETL/Integration Layer. | Internal ETL/Integration Layer. |
+| Who | Data Engineer / Integration Specialist. | Data Engineer / Integration Specialist. | Data Engineer / Integration Specialist. |
+| When | Launch and Continuous. | Continuous. | Continuous. |
+| 7. 📈 Monitoring & Continuous Improvement |  |  |  |
+| What | Track API costs and basic latency. | Track Infrastructure Health and Throughput (Tier 5). | Track Cost per Document (Tier 6) and Model Drift. |
+| Why | Manage high variable costs. | Ensure system scalability and stability for self-hosting. | Optimize resource usage and maintain long-term model health. |
+| How | Cloud Monitoring Tools. | Prometheus/Grafana. | Prometheus/Grafana + Custom Cost Reports. |
+| Where | Cloud Monitoring (Phase 1/2) \rightarrow Internal Monitoring (Phase 3). | Internal Monitoring (Phase 3). | Internal Monitoring (Phase 3). |
+| Who | Platform Team / DevOps. | DevOps / SRE. | Data Scientist / DevOps. |
+| When | Launch and Continuous. | Continuous. | Continuous. |
