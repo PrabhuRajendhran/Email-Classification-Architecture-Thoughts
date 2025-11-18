@@ -1,0 +1,170 @@
+**Here’s your complete step-by-step guide to building an intelligent pipeline that reads emails and attachments, extracts structured data, and enables conversational querying — with detailed instructions for every document type, messiness level, and processing decision.**
+
+---
+
+## 🧠 **Step 1: Ingest Emails and Attachments**
+
+### 🔹 What to do:
+- Use **Microsoft Graph API** or **IMAP** to fetch emails.
+- Extract:
+  - **Metadata**: sender, subject, timestamp
+  - **Body**: HTML/plaintext
+  - **Attachments**: PDFs, DOCX, XLSX, images
+
+### 🔹 How to determine:
+- If email has attachments → route to attachment parser
+- If body contains structured info → send to body parser
+
+### 🔹 Tools:
+- `email` Python module, `beautifulsoup` for HTML
+- MIME parsers for attachments
+
+---
+
+## 🧠 **Step 2: Classify Document Type**
+
+### 🔹 What to do:
+Identify the type of each attachment or email body.
+
+| Type | Detection Method | Next Step |
+|------|------------------|-----------|
+| PDF (text) | `pdfplumber`, `PyMuPDF` | Text extraction |
+| PDF (scanned) | `pdfplumber` + low text density | OCR |
+| DOCX | `python-docx` | Paragraph + table parsing |
+| XLSX | `openpyxl`, `pandas.read_excel` | Sheet parsing |
+| Image | file extension or MIME type | OCR |
+| Email body | HTML/plaintext | Regex + LLM parsing |
+
+---
+
+## 🧠 **Step 3: Extract Text from Attachments**
+
+### 🔹 What to do:
+Convert each document into raw text.
+
+| Format | Tool | Notes |
+|--------|------|-------|
+| PDF (text) | `pdfplumber`, `PyMuPDF` | Extract by page |
+| Scanned PDF/Image | `Tesseract`, `EasyOCR`, `Textract` | OCR required |
+| DOCX | `python-docx` | Extract paragraphs + tables |
+| XLSX | `pandas.read_excel` | Convert to JSON or table |
+| Email body | `beautifulsoup`, regex | Strip HTML tags |
+
+---
+
+## 🧠 **Step 4: Clean and Normalize Text**
+
+### 🔹 What to do:
+Remove noise and prepare for extraction.
+
+### 🔹 How to clean:
+- Remove:
+  - Greetings, disclaimers, signatures
+  - Repeated headers/footers
+  - Empty lines, broken formatting
+- Normalize:
+  - Whitespace
+  - Encoding issues
+  - Bullet points and tables
+
+### 🔹 Tools:
+- `re`, `nltk`, `ftfy`, `langdetect`
+- LLM-based chunking: classify blocks as “header”, “table”, “narrative”
+
+---
+
+## 🧠 **Step 5: Extract Field–Value Pairs**
+
+### 🔹 What to do:
+Identify structured data like `Invoice Number`, `Amount`, `Due Date`.
+
+### 🔹 How to determine strategy:
+| Scenario | Strategy |
+|----------|----------|
+| Known format | Regex + spaCy NER |
+| Semi-structured | LLM (GPT-4, Claude) |
+| Tabular | Table parser + LLM |
+| OCR output | LLM with prompt tuning |
+| Layout-heavy | VLM (GPT-4V, Claude 3) |
+
+### 🔹 Tools:
+- LangChain StructuredOutputParser
+- Guardrails / Outlines for schema enforcement
+- Use few-shot prompts for consistency
+
+---
+
+## 🧠 **Step 6: Structure and Store Extracted Data**
+
+### 🔹 What to do:
+Convert extracted fields into structured format.
+
+### 🔹 How to structure:
+- Use JSON schema:
+  ```json
+  {
+    "invoice_number": "INV-123",
+    "amount": "₹12,000",
+    "due_date": "2025-11-30",
+    "vendor": "ABC Corp"
+  }
+  ```
+
+### 🔹 Where to store:
+| Data Type | Storage |
+|-----------|---------|
+| Raw chunks | Vector DB (FAISS, Qdrant) |
+| Structured fields | Relational DB (PostgreSQL) |
+| Relationships | Graph DB (Neo4j) |
+
+---
+
+## 🧠 **Step 7: Enable Conversational Querying**
+
+### 🔹 What to do:
+Let users ask questions like “What’s the total due from Vendor X?”
+
+### 🔹 How to determine strategy:
+| Query Type | Strategy |
+|------------|----------|
+| Semantic | RAG |
+| Multi-hop | Graph RAG |
+| Summarization | LLM |
+| Filtering | SQL + RAG |
+
+### 🔹 Tools:
+- LangChain / LlamaIndex
+- RAG pipeline: embed query → retrieve chunks → LLM response
+- Graph RAG: traverse entity relationships → feed to LLM
+
+---
+
+## 🧠 **Step 8: Handle Messy Documents**
+
+### 🔹 What to do:
+Fallback to robust models when structure fails.
+
+| Messiness | Strategy |
+|-----------|----------|
+| OCR fails | VLM (GPT-4V, Claude 3) |
+| Layout broken | VLM or LLM with layout prompt |
+| Handwritten | EasyOCR + VLM |
+| Mixed formats | Chunk → classify → route to best parser |
+
+---
+
+## 🧠 **Step 9: Orchestrate with Agents**
+
+### 🔹 What to do:
+Modularize the pipeline into intelligent agents.
+
+| Agent | Role |
+|-------|------|
+| Perception Agent | Ingest + classify |
+| Vision Agent | OCR + VLM |
+| Extraction Agent | Field parsing |
+| Memory Agent | Store + retrieve |
+| Conversation Agent | Query + response |
+| Fallback Agent | Escalate to VLM or human |
+
+---
